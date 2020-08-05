@@ -9,7 +9,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.ImageView;
+import android.widget.ListAdapter;
 import android.widget.TextView;
+import androidx.annotation.Nullable;
 
 /**
  * author: lanweihua
@@ -19,33 +21,33 @@ import android.widget.TextView;
 public class CircleMenuLayout extends ViewGroup {
 
   //整个layout的直径
-  private int mRadius;
-  //该容器内child item的默认尺寸
+  private int mDiameter;
+  //菜单item的大小   其实就是四分之一的直径大小
   private static final float RADIO_DEFAULT_CHILD_DIMENSION = 1 / 4f;
-  // 菜单的中心child的默认尺寸
+  // 菜单center的大小
   private float RADIO_DEFAULT_CENTERITEM_DIMENSION = 1 / 3f;
-  //该容器的内边距,无视padding属性，如需边距请用该变量
+  //布局的内边距  即菜单item到布局边界的距离   默认为1/12的直径长度
   private static final float RADIO_PADDING_LAYOUT = 1 / 12f;
 
   // 当每秒移动角度达到该值时，认为是快速移动
-  private static final int FLINGABLE_VALUE = 300;
+  private static final int QUICK_FLINGABLE_VALUE = 300;
   // 如果移动角度达到该值，则屏蔽点击
   private static final int NOCLICK_VALUE = 3;
 
   //当每秒移动角度达到该值时，认为是快速移动
-  private int mFlingableValue = FLINGABLE_VALUE;
+  private int mQuickFlingableValue = QUICK_FLINGABLE_VALUE;
 
-  //该容器的内边距,无视padding属性，如需边距请用该变量
+  //布局的内边距  即菜单item到布局边界的距离
   private float mPadding;
 
-  // 布局时的开始角度
+  // 布局时的开始角度   即从哪一个角度开始布局第一个view
   private double mStartAngle = 0;
 
-  //检测按下到抬起时旋转的角度
+  //从按下到抬起时旋转的角度
   private float mTmpAngle;
-  //检测按下到抬起时使用的时间
+  //从按下到抬起时使用的时间
   private long mDownTime;
-  //判断是否正在自动滚动
+  //是否正在滚动
   private boolean isFling;
 
   //上次点击的位置
@@ -55,14 +57,9 @@ public class CircleMenuLayout extends ViewGroup {
   //自动滚动
   private AutoFlingRunnable mAutoFlingRunnable;
 
-  // 菜单项的文本
-  private String[] mItemTexts;
-  // 菜单项的图标
-  private int[] mItemImgs;
-  // 菜单的个数
-  private int mMenuItemCount;
-
   private OnMenuItemClickListener mOnMenuItemClickListener;
+  @Nullable
+  private ListAdapter mListAdapter;
 
 
   public CircleMenuLayout(Context context, AttributeSet attrs) {
@@ -70,7 +67,6 @@ public class CircleMenuLayout extends ViewGroup {
     // 无视padding
     setPadding(0, 0, 0, 0);
   }
-
 
   @Override
   protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
@@ -97,15 +93,15 @@ public class CircleMenuLayout extends ViewGroup {
     }
 
     setMeasuredDimension(resWidth, resHeight);
-    mRadius = Math.max(getMeasuredWidth(), getMeasuredHeight());
+    mDiameter = Math.max(getMeasuredWidth(), getMeasuredHeight());
     // menu item数量
     final int count = getChildCount();
     // menu item尺寸
-    int childSize = (int) (mRadius * RADIO_DEFAULT_CHILD_DIMENSION);
+    int childSize = (int) (mDiameter * RADIO_DEFAULT_CHILD_DIMENSION);
     // menu item测量模式
     int childMode = MeasureSpec.EXACTLY;
 
-// 迭代测量
+     // 迭代测量
     for (int i = 0; i < count; i++) {
       final View child = getChildAt(i);
 
@@ -118,7 +114,7 @@ public class CircleMenuLayout extends ViewGroup {
 
       if (child.getId() == R.id.id_circle_menu_item_center) {
         makeMeasureSpec = MeasureSpec.makeMeasureSpec(
-            (int) (mRadius * RADIO_DEFAULT_CENTERITEM_DIMENSION),
+            (int) (mDiameter * RADIO_DEFAULT_CENTERITEM_DIMENSION),
             childMode);
       } else {
         makeMeasureSpec = MeasureSpec.makeMeasureSpec(childSize,
@@ -127,7 +123,7 @@ public class CircleMenuLayout extends ViewGroup {
       child.measure(makeMeasureSpec, makeMeasureSpec);
     }
 
-    mPadding = RADIO_PADDING_LAYOUT * mRadius;
+    mPadding = RADIO_PADDING_LAYOUT * mDiameter;
 
   }
 
@@ -143,7 +139,7 @@ public class CircleMenuLayout extends ViewGroup {
   @Override
   protected void onLayout(boolean changed, int l, int t, int r, int b) {
 
-    int layoutRadius = mRadius;
+    int layoutRadius = mDiameter;
 
     // Laying out the child views
     final int childCount = getChildCount();
@@ -153,7 +149,7 @@ public class CircleMenuLayout extends ViewGroup {
     int cWidth = (int) (layoutRadius * RADIO_DEFAULT_CHILD_DIMENSION);
 
     // 根据menu item的个数，计算角度
-    float angleDelay = 360 / (getChildCount() - 1);
+    float angleDelay = 360 / (getChildCount()-1);
 
     // 遍历去设置menuitem的位置
     for (int i = 0; i < childCount; i++) {
@@ -191,85 +187,58 @@ public class CircleMenuLayout extends ViewGroup {
     }
 
     // 找到中心的view，如果存在设置onclick事件
-    View cView = findViewById(R.id.id_circle_menu_item_center);
-    if (cView != null) {
-      cView.setOnClickListener(new OnClickListener() {
-        @Override
-        public void onClick(View v) {
-
-          if (mOnMenuItemClickListener != null) {
-            mOnMenuItemClickListener.itemCenterClick(v);
-          }
-        }
-      });
-      // 设置center item位置
-      int cl = layoutRadius / 2 - cView.getMeasuredWidth() / 2;
-      int cr = cl + cView.getMeasuredWidth();
-      cView.layout(cl, cl, cr, cr);
-    }
+//    View cView = findViewById(R.id.id_circle_menu_item_center);
+//    if (cView != null) {
+//      cView.setOnClickListener(new OnClickListener() {
+//        @Override
+//        public void onClick(View v) {
+//
+//          if (mOnMenuItemClickListener != null) {
+//            mOnMenuItemClickListener.itemCenterClick(v);
+//          }
+//        }
+//      });
+//      // 设置center item位置
+//      int cl = layoutRadius / 2 - cView.getMeasuredWidth() / 2;
+//      int cr = cl + cView.getMeasuredWidth();
+//      cView.layout(cl, cl, cr, cr);
+//    }
 
 
   }
 
-  public void setMenuItemIconsAndTexts(int[] resIds, String[] texts) {
-    mItemImgs = resIds;
-    mItemTexts = texts;
 
-    // 参数检查
-    if (resIds == null && texts == null) {
-      throw new IllegalArgumentException("菜单项文本和图片至少设置其一");
+  public void setListAdapter(ListAdapter listAdapter){
+    this.mListAdapter = listAdapter;
+//    requestLayout();
+  }
+
+  @Override
+  protected void onAttachedToWindow() {
+    if(mListAdapter!=null){
+      buildMenuItems();
     }
-
-    // 初始化mMenuCount
-    mMenuItemCount = resIds == null ? texts.length : resIds.length;
-
-    if (resIds != null && texts != null) {
-      mMenuItemCount = Math.min(resIds.length, texts.length);
-    }
-
-    addMenuItems();
-
+    super.onAttachedToWindow();
   }
 
   /**
-   * 添加菜单项
+   * 构建菜单项
    */
-  private void addMenuItems() {
-    LayoutInflater mInflater = LayoutInflater.from(getContext());
-
-    /**
-     * 根据用户设置的参数，初始化view
-     */
-    for (int i = 0; i < mMenuItemCount; i++) {
-      final int j = i;
-      View view = mInflater.inflate(R.layout.circle_menu_item, this,
-          false);
-      ImageView iv = (ImageView) view
-          .findViewById(R.id.id_circle_menu_item_image);
-      TextView tv = (TextView) view
-          .findViewById(R.id.id_circle_menu_item_text);
-
-      if (iv != null) {
-        iv.setVisibility(View.VISIBLE);
-        iv.setImageResource(mItemImgs[i]);
-        iv.setOnClickListener(new OnClickListener() {
+  private void buildMenuItems() {
+      for(int i=0;i<mListAdapter.getCount();++i){
+        final View itemView = mListAdapter.getView(i,null,this);
+        final int pos = i;
+        itemView.setOnClickListener(new OnClickListener() {
           @Override
-          public void onClick(View v) {
-
-            if (mOnMenuItemClickListener != null) {
-              mOnMenuItemClickListener.itemClick(v, j);
+          public void onClick(View view) {
+            if(mOnMenuItemClickListener!=null){
+              mOnMenuItemClickListener.itemClick(itemView,pos);
             }
           }
         });
-      }
-      if (tv != null) {
-        tv.setVisibility(View.VISIBLE);
-        tv.setText(mItemTexts[i]);
-      }
 
-      // 添加view到容器中
-      addView(view);
-    }
+        addView(itemView);
+      }
   }
 
 
@@ -277,7 +246,7 @@ public class CircleMenuLayout extends ViewGroup {
   public interface OnMenuItemClickListener {
     void itemClick(View view, int pos);
 
-    void itemCenterClick(View view);
+    //void itemCenterClick(View view);
   }
 
   public void setOnMenuItemClickListener(
@@ -337,7 +306,7 @@ public class CircleMenuLayout extends ViewGroup {
             / (System.currentTimeMillis() - mDownTime);
 
         // 如果达到该值认为是快速移动
-        if (Math.abs(anglePerSecond) > mFlingableValue && !isFling) {
+        if (Math.abs(anglePerSecond) > mQuickFlingableValue && !isFling) {
           // post一个任务，去自动滚动
           post(mAutoFlingRunnable = new AutoFlingRunnable(anglePerSecond));
 
@@ -357,8 +326,8 @@ public class CircleMenuLayout extends ViewGroup {
 
   //根据坐标获得角度
   private float getAngle(float xTouch, float yTouch) {
-    double x = xTouch - (mRadius / 2d);
-    double y = yTouch - (mRadius / 2d);
+    double x = xTouch - (mDiameter / 2d);
+    double y = yTouch - (mDiameter / 2d);
 
     return (float) (Math.asin(y / Math.hypot(x, y)) * 180 / Math.PI);
   }
@@ -366,8 +335,8 @@ public class CircleMenuLayout extends ViewGroup {
   //根据坐标计算象限
   private int getQuadrant(float x, float y) {
 
-    int tmpX = (int) (x - mRadius / 2);
-    int tmpY = (int) (y - mRadius / 2);
+    int tmpX = (int) (x - mDiameter / 2);
+    int tmpY = (int) (y - mDiameter / 2);
     if (tmpX >= 0) {
       return tmpY >= 0 ? 4 : 1;
     }
@@ -397,7 +366,7 @@ public class CircleMenuLayout extends ViewGroup {
       mStartAngle += (mAngelPerSecond / 30);
 
       //减速
-      mAngelPerSecond /= 1.0666F;
+      mAngelPerSecond /= 1.065F;
       postDelayed(this, 30);
       requestLayout();
 

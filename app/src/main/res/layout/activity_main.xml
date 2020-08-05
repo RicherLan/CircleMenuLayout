@@ -14,7 +14,7 @@
     android:background="@color/colorAccent" >
 
     <RelativeLayout
-      android:id="@id/id_circle_menu_item_center"
+      android:id="@+id/id_circle_menu_item_center"
       android:layout_width="wrap_content"
       android:layout_height="wrap_content" >
 
